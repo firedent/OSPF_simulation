@@ -103,6 +103,7 @@ def broadcast_thread():
     while True:
         try:
             NEIGHBOURS_lock.acquire(True, 0.5)
+            print(f'{NEIGHBOURS}')
             if last_update < NEIGHBOURS.timestamp:
                 neighbour = dict(
                     [(n[0], n[1]) for n in NEIGHBOURS.items() if n[1][2]]
@@ -243,7 +244,7 @@ def check_alive():
                     # print(f'{nodes_known[ID].pop(n)}')
                     del nodes_known[ID][n]
                     print(f'[DELETE] OK')
-                nodes_known.neighbour_timestamp = time.time()
+                nodes_known.timestamp = time.time()
 
         time.sleep(UPDATE_INTERVAL)
 
@@ -384,8 +385,8 @@ NEIGHBOURS_lock = threading.Lock()
 nodes_known = NodesKnown()
 nodes_known_lock = threading.Lock()
 nodes_known[ID] = dict([(n[0], n[1][0]) for n in NEIGHBOURS.items()])
-nodes_known.neighbour_timestamp = int(time.time())
-default_message_for_broadcast = [ID, 1, NEIGHBOURS.timestamp, nodes_known[ID]]
+nodes_known.timestamp = int(time.time())
+default_message_for_broadcast = [ID, 1, NEIGHBOURS.timestamp, nodes_known[ID].copy()]
 
 # +-------------------------------------------+
 # | SOURCE ID | TYPE | TIMESTAMP | STATE DATA |
