@@ -464,6 +464,7 @@ default_message_for_broadcast = [ID, 1, nodes_known.neighbour_timestamp, nodes_k
 #   1: 自身广播包，无序被确认
 #   2: 转发别人的广播包，需要被确认，因为只广播一次
 #   3: 确认包
+#   5: 再次上线广播包
 
 # message_for_broadcast = json.dumps([ID, 1, int(time.time()), NEIGHBOURS])
 # message_for_broadcast = json.dumps([ID, 1, int(time.time()), nodes_known[ID]])
