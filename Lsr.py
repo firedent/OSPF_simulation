@@ -84,7 +84,8 @@ def dijkstra_thread():
     while True:
         time.sleep(ROUTE_UPDATE_INTERVAL)
         with nodes_known_lock:
-            print(f'[Dijkstra] {nodes_known}')
+            sor = sorted(nodes_known.items(), key=lambda x:x[0])
+            print(f'[Dijkstra] {sor}')
 
 
 def broadcast_thread():
@@ -255,20 +256,21 @@ def check_alive():
                         nodes_heartbeat[n] += 1
 
             if len(lost_node) != 0:
-                print(f'[LOST] {lost_node}')
+                print(f'[LOST] {lost_node} {time.time()}')
                 print(f'{nodes_known}')
                 for n in lost_node:
                     print(f'[DELETE] nodes_known[{ID}][{n}]: {nodes_known[ID][n]}')
                     # print(f'{nodes_known[ID].pop(n)}')
                     del nodes_known[ID][n]
                     print(f'[DELETE] nodes_known[{ID}][{n}]OK')
-                    del nodes_known[n]
-                    print(f'[DELETE] nodes_known[{n}]OK')
-                nodes_known.neighbour_timestamp = int(time.time())
-                nodes_known.nodes_timestamp = int(time.time())
-
-                # TODO
-                # send_queue.put('通知其他节点，某个节点已下线')
+                    if n in nodes_known.keys():
+                        del nodes_known[n]
+                        print(f'[DELETE] nodes_known[{n}]OK')
+                    with packet_update_time_lock:
+                        offline_packet_list = [n, 1, packet_update_time.get(n, 0)+1, {}]
+                        receive_queue.put((offline_packet_list, NEIGHBOURS[n][1]))
+                        print(f'[Receive] offline packet from {n}: {offline_packet_list}')
+                nodes_known.nodes_timestamp = nodes_known.neighbour_timestamp = int(time.time())
 
         time.sleep(UPDATE_INTERVAL)
 
@@ -286,18 +288,14 @@ def main_thread():
             receive_data_list[0], receive_data_list[1], receive_data_list[2]
 
         # 心跳包
-        with nodes_heartbeat_lock:
-            nodes_heartbeat[packet_source_router] = 0
-            # print(f'[RETENTION] nodes_heartbeat[{packet_source_router}] == 0')
+        if packet_type == 1:
+            with nodes_heartbeat_lock:
+                nodes_heartbeat[packet_source_router] = 0
+                # print(f'[RETENTION] nodes_heartbeat[{packet_source_router}] == 0')
 
         if packet_type not in {1, 2, 3, 4, 5}:
             print(f'I don\'t know what\'s the meaning of packet!!!!')
             continue
-
-        # node leave/lost
-        if packet_type == 4:
-            # TODO 收到通知，某个间接相邻的节点被删除
-            pass
 
         if packet_type == 3:
             print(f'[ACK] From {node_data[packet_receive_from_port]}: {packet_receive_from_port}')
@@ -324,9 +322,8 @@ def main_thread():
 
         # 如果是转发报文 reply ACK
         if packet_type == 2:
-            # TODO 收到被转发的报文，报文内容是某个远程节点被删除
             print(f'[RECEIVE] Forwarded packet from {node_data[packet_receive_from_port]}:{packet_receive_from_port} '
-                  f'{receive_data_list}')
+                  f'{receive_data_list} {time.time()}')
 
             # ？？？？
             # send_queue.put(([ID, 3, receive_data_list[2]], packet_receive_from_port))
@@ -338,7 +335,7 @@ def main_thread():
         with nodes_known_lock, packet_update_time_lock:
             node_cost = receive_data_list[3]
             last_update_time = packet_update_time.get(packet_source_router, 0)
-            print(f'[RECEIVE] from {receive_data_list}, old: {last_update_time}')
+            print(f'[RECEIVE] from {packet_source_router}:{receive_data_list}, old: {last_update_time}')
             # print(f'recorded timestamp {packet_source_router} to self: {last_update_time}')
             # print(f'packet timestamp {packet_source_router} to self: {packet_timestamp}')
 
@@ -357,15 +354,20 @@ def main_thread():
                 # }
                 # 更新 从 源主机 到 本机 的内容
                 print(f'node_cost: {node_cost}')
-                nodes_known[packet_source_router] = node_cost
+                if len(node_cost) != 0:
+                    nodes_known[packet_source_router] = node_cost
 
-                # A 收到 B 的数据包: {'C': 5, 'E':8} 说明 B与CD想通, C、D与B想通
-                # C、D与B想通这个信息迟早要通过包转发发送过来
-                # for i in node_cost.items():
-                #     nodes_known.setdefault(i[0], dict())[packet_source_router] = i[1]
+                    # A 收到 B 的数据包: {'C': 5, 'E':8} 说明 B与CD想通, C、D与B想通
+                    # C、D与B想通这个信息迟早要通过包转发发送过来
+                    # for i in node_cost.items():
+                    #     nodes_known.setdefault(i[0], dict())[packet_source_router] = i[1]
 
-                nodes_known.nodes_timestamp = int(time.time())
-                print(f'[UPDATE] Know {nodes_known}')
+                    nodes_known.nodes_timestamp = int(time.time())
+                    print(f'[UPDATE] Know {nodes_known}')
+                elif packet_source_router in nodes_known.keys():
+                    del nodes_known[packet_source_router]
+                    print(f'[DELETE] nodes_known[{packet_source_router}]OK')
+                    nodes_known.nodes_timestamp = int(time.time())
 
             for n in nodes_known[ID].items():
                 target_router_name = n[0]
