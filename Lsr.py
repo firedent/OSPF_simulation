@@ -84,6 +84,34 @@ def dijkstra_thread():
     while True:
         time.sleep(ROUTE_UPDATE_INTERVAL)
         with nodes_known_lock:
+            d = {ID: 0}
+            previous = dict()
+            S = set()
+            Q = set(nodes_known.keys())
+            while len(Q) != 0:
+                u = sorted([(q, d[q]) for q in Q if d.get(q, -1) != -1], key=lambda x: x[1])[0][0]
+                Q.remove(u)
+                S.add(u)
+                for i in nodes_known[u].items():
+                    if d.get(i[0], -1) == -1:
+                        d[i[0]] = d[u] + i[1]
+                        previous[i[0]] = u
+                    elif d[i[0]] > d[u] + i[1]:
+                        d[i[0]] = d[u] + i[1]
+                        previous[i[0]] = u
+
+            print(f'I am Router {ID}')
+            S.remove(ID)
+            for i in sorted(S):
+                u = i
+                path = []
+                while True:
+                    path.append(u)
+                    if u == ID:
+                        break
+                    u = previous[u]
+                path_string = ''.join([i for i in reversed(path)])
+                print(f'Least cost path to router {i}:{path_string} and the cost: {round(d[i],1)}')
             sor = sorted(nodes_known.items(), key=lambda x:x[0])
             print(f'[Dijkstra] {sor}')
 
