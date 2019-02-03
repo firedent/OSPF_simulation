@@ -7,18 +7,9 @@ import json
 import argparse
 import queue
 
-ROUTE_UPDATE_INTERVAL = 10
+ROUTE_UPDATE_INTERVAL = 30
 MAX_CONSECUTIVE_LOST_TIME = 3
 UPDATE_INTERVAL = 1
-
-node_data = {
-    5000: 'A',
-    5001: 'B',
-    5002: 'C',
-    5003: 'D',
-    5004: 'E',
-    5005: 'F'
-}
 
 
 class NodesKnown(dict):
@@ -73,7 +64,7 @@ def listening_thread():
                 print(f'[!!! ERROR !!!] Receive a broadcast not belong of neighbours')
             i += 1
         if i == 10:
-            print(f'[INFO] receive LST x 10')
+            # print(f'[INFO] receive LST x 10')
             i = 0
 
         receive_queue.put((data_list, address[1]))
@@ -113,7 +104,7 @@ def dijkstra_thread():
                 path_string = ''.join([i for i in reversed(path)])
                 print(f'Least cost path to router {i}:{path_string} and the cost: {round(d[i],1)}')
             sor = sorted(nodes_known.items(), key=lambda x:x[0])
-            print(f'[Dijkstra] {sor}')
+            # print(f'[Dijkstra] {sor}')
 
 
 def broadcast_thread():
@@ -132,7 +123,7 @@ def broadcast_thread():
     update_broadcast = default_message_for_broadcast.copy()
     update_broadcast[1] = 5
     for i in NEIGHBOURS.items():
-        print(f'[SEND] sending update packet {update_broadcast}')
+        # print(f'[SEND] sending update packet {update_broadcast}')
         send_queue.put(
             (
                 update_broadcast,
@@ -164,7 +155,7 @@ def broadcast_thread():
                 # )
                 send = (list_for_broadcast, (nbh[0], NEIGHBOURS[nbh[0]][1]))
                 send_queue.put(send)
-            print(f'[Broadcast] to {neighbour}')
+            # print(f'[Broadcast] to {neighbour}')
         finally:
             nodes_known_lock.release()
 
@@ -204,7 +195,7 @@ def sending_thread():
             # 创建一个计时器
             check_ack_thread = threading.Thread(target=check_ack, args=send)
             sending(target, message=data)
-            print(f'[Forward] To {target[0]}:{target[1]} {data}')
+            # print(f'[Forward] To {target[0]}:{target[1]} {data}')
             # 触发计时器，发送完数据5s后运行check()
             check_ack_thread.start()
         else:
@@ -212,7 +203,7 @@ def sending_thread():
                 # print(f'[Broadcast] {node_data[target]}:{target} {data}')
                 i += 1
             if i == 10:
-                print(f'[Broadcast] {data} x 10')
+                # print(f'[Broadcast] {data} x 10')
                 i = 0
             sending(target, message=data)
 
@@ -245,12 +236,12 @@ def check_ack(*send):
     try:
         nodes_known_lock.acquire()
         if target_router_name not in nodes_known[ID]:
-            print(f'[Fail] To {target_router_name}:{target_router_port} has been removed from neighbour')
+            # print(f'[Fail] To {target_router_name}:{target_router_port} has been removed from neighbour')
             return
     finally:
         nodes_known_lock.release()
 
-    print(f'[Fail] To {target_router_name}:{target_router_port} {send[0]}, try again')
+    # print(f'[Fail] To {target_router_name}:{target_router_port} {send[0]}, try again')
     send_queue.put(send)
 
 
@@ -284,20 +275,20 @@ def check_alive():
                         nodes_heartbeat[n] += 1
 
             if len(lost_node) != 0:
-                print(f'[LOST] {lost_node} {time.time()}')
-                print(f'{nodes_known}')
+                # print(f'[LOST] {lost_node} {time.time()}')
+                # print(f'{nodes_known}')
                 for n in lost_node:
-                    print(f'[DELETE] nodes_known[{ID}][{n}]: {nodes_known[ID][n]}')
+                    # print(f'[DELETE] nodes_known[{ID}][{n}]: {nodes_known[ID][n]}')
                     # print(f'{nodes_known[ID].pop(n)}')
                     del nodes_known[ID][n]
-                    print(f'[DELETE] nodes_known[{ID}][{n}]OK')
+                    # print(f'[DELETE] nodes_known[{ID}][{n}]OK')
                     if n in nodes_known.keys():
                         del nodes_known[n]
-                        print(f'[DELETE] nodes_known[{n}]OK')
+                        # print(f'[DELETE] nodes_known[{n}]OK')
                     with packet_update_time_lock:
                         offline_packet_list = [n, 1, packet_update_time.get(n, 0)+1, {}]
                         receive_queue.put((offline_packet_list, NEIGHBOURS[n][1]))
-                        print(f'[Receive] offline packet from {n}: {offline_packet_list}')
+                        # print(f'[Receive] offline packet from {n}: {offline_packet_list}')
                 nodes_known.nodes_timestamp = nodes_known.neighbour_timestamp = int(time.time())
 
         time.sleep(UPDATE_INTERVAL)
@@ -322,11 +313,11 @@ def main_thread():
                 # print(f'[RETENTION] nodes_heartbeat[{packet_source_router}] == 0')
 
         if packet_type not in {1, 2, 3, 4, 5}:
-            print(f'I don\'t know what\'s the meaning of packet!!!!')
+            # print(f'I don\'t know what\'s the meaning of packet!!!!')
             continue
 
         if packet_type == 3:
-            print(f'[ACK] From {node_data[packet_receive_from_port]}: {packet_receive_from_port}')
+            # print(f'[ACK] From {node_data[packet_receive_from_port]}: {packet_receive_from_port}')
             with nodes_ack_lock:
                 nodes_ack[packet_source_router] = True
                 # print(f'SET nodes_ack[{packet_source_router}] to True')
@@ -350,12 +341,12 @@ def main_thread():
 
         # 如果是转发报文 reply ACK
         if packet_type == 2:
-            print(f'[RECEIVE] Forwarded packet from {node_data[packet_receive_from_port]}:{packet_receive_from_port} '
-                  f'{receive_data_list} {time.time()}')
+            # print(f'[RECEIVE] Forwarded packet from {node_data[packet_receive_from_port]}:{packet_receive_from_port} '
+            #       f'{receive_data_list} {time.time()}')
 
             # ？？？？
             # send_queue.put(([ID, 3, receive_data_list[2]], packet_receive_from_port))
-            print(f'[SEND] ACK to {node_data[packet_receive_from_port]}:{packet_receive_from_port} ')
+            # print(f'[SEND] ACK to {node_data[packet_receive_from_port]}:{packet_receive_from_port} ')
             send_queue.put(([ID, 3, packet_timestamp], (receive_data_list[0], packet_receive_from_port)))
 
         # print(f'[RECEIVE] Broadcast packet from {node_data[packet_receive_from_port]}:{packet_receive_from_port} '
@@ -363,7 +354,7 @@ def main_thread():
         with nodes_known_lock, packet_update_time_lock:
             node_cost = receive_data_list[3]
             last_update_time = packet_update_time.get(packet_source_router, 0)
-            print(f'[RECEIVE] from {packet_source_router}:{receive_data_list}, old: {last_update_time}')
+            # print(f'[RECEIVE] from {packet_source_router}:{receive_data_list}, old: {last_update_time}')
             # print(f'recorded timestamp {packet_source_router} to self: {last_update_time}')
             # print(f'packet timestamp {packet_source_router} to self: {packet_timestamp}')
 
@@ -373,7 +364,7 @@ def main_thread():
 
             if last_update_time < packet_timestamp:
                 packet_update_time[packet_source_router] = packet_timestamp
-                print(f'[INFO] {nodes_known.nodes_timestamp}: {nodes_known}')
+                # print(f'[INFO] {nodes_known.nodes_timestamp}: {nodes_known}')
                 # 更新
                 # node_cost = {
                 #     'A': 6.3,
@@ -381,7 +372,7 @@ def main_thread():
                 #     ...
                 # }
                 # 更新 从 源主机 到 本机 的内容
-                print(f'node_cost: {node_cost}')
+                # print(f'node_cost: {node_cost}')
                 if len(node_cost) != 0:
                     nodes_known[packet_source_router] = node_cost
 
@@ -391,10 +382,10 @@ def main_thread():
                     #     nodes_known.setdefault(i[0], dict())[packet_source_router] = i[1]
 
                     nodes_known.nodes_timestamp = int(time.time())
-                    print(f'[UPDATE] Know {nodes_known}')
+                    # print(f'[UPDATE] Know {nodes_known}')
                 elif packet_source_router in nodes_known.keys():
                     del nodes_known[packet_source_router]
-                    print(f'[DELETE] nodes_known[{packet_source_router}]OK')
+                    # print(f'[DELETE] nodes_known[{packet_source_router}]OK')
                     nodes_known.nodes_timestamp = int(time.time())
 
             for n in nodes_known[ID].items():
@@ -421,8 +412,8 @@ def main_thread():
                 receive_data_list[1] = 2
 
                 packet_update_time[(packet_source_router, target_router_name)] = packet_timestamp
-                print(f'[UPDATE] Forward packet from {packet_source_router} to {target_router_name}, '
-                      f'old: {last_update_time}, new: {packet_timestamp}')
+                # print(f'[UPDATE] Forward packet from {packet_source_router} to {target_router_name}, '
+                #       f'old: {last_update_time}, new: {packet_timestamp}')
 
                 # print(f'[Forward] To {target_router_name}:{target_router_port} {receive_data_list}')
                 send_queue.put((receive_data_list, (target_router_name, target_router_port)))
@@ -512,9 +503,9 @@ receive_queue = queue.Queue()
 send_queue = queue.Queue()
 broadcast_queue = queue.Queue()
 
-print(f'[INFO] ROuter: {ID}')
-print(f'[INFO] Config: {NEIGHBOURS}')
-print(f'[INFO] {nodes_known.neighbour_timestamp}: {nodes_known}')
+# print(f'[INFO] ROuter: {ID}')
+# print(f'[INFO] Config: {NEIGHBOURS}')
+# print(f'[INFO] {nodes_known.neighbour_timestamp}: {nodes_known}')
 
 
 t1 = threading.Thread(target=sending_thread)
